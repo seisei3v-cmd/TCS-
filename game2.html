@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual Shipment Puzzle with NEXT</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: #121214;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 22px;
+      color: #00b4d8;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+
+    .sub-title {
+      font-size: 13px;
+      color: #8d99ae;
+    }
+
+    .game-container {
+      display: flex;
+      gap: 20px;
+      background: #1e1e24;
+      padding: 20px;
+      border-radius: 12px;
+      border: 2px solid #2b2d42;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+      position: relative;
+    }
+
+    .board-wrapper {
+      position: relative;
+    }
+
+    .board {
+      width: 240px;
+      height: 480px;
+      background-color: #0b0c10;
+      border: 3px solid #00b4d8;
+      border-radius: 4px;
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      grid-template-rows: repeat(20, 1fr);
+      gap: 1px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .cell {
+      width: 100%;
+      height: 100%;
+      border-radius: 2px;
+    }
+
+    .cell.empty {
+      background-color: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    /* ブロック色 (I, O, T, S, Z, J, L) */
+    .cell.color-1 { background-color: #00f0f0; border: 1px solid #79f8f8; }
+    .cell.color-2 { background-color: #f0f000; border: 1px solid #f8f879; }
+    .cell.color-3 { background-color: #a000f0; border: 1px solid #d479f8; }
+    .cell.color-4 { background-color: #00f000; border: 1px solid #79f879; } /* 例の変形Sブロック */
+    .cell.color-5 { background-color: #f00000; border: 1px solid #f87979; }
+    .cell.color-6 { background-color: #0000f0; border: 1px solid #7979f8; }
+    .cell.color-7 { background-color: #f0a000; border: 1px solid #f8d479; }
+    .cell.color-8 { background-color: #ffffff; border: 1px solid #e0e0e0; }
+    .cell.color-9 { background-color: #8b4513; border: 1px solid #a0522d; }
+
+    /* 揃った行の強調演出 */
+    .cell.ready-to-clear {
+      border: 3px solid #ffffff !important;
+      z-index: 10;
+      cursor: pointer;
+      animation: boldBorderFlash 0.8s infinite alternate;
+    }
+
+    @keyframes boldBorderFlash {
+      0% {
+        border: 3px solid #ffffff;
+        box-shadow: inset 0 0 6px #ffffff, 0 0 8px #ffb703;
+        transform: scale(0.98);
+      }
+      100% {
+        border: 4px solid #ffb703;
+        box-shadow: inset 0 0 12px #ffb703, 0 0 15px #ffd166;
+        transform: scale(1.02);
+      }
+    }
+
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: 170px;
+    }
+
+    .info-box {
+      background: #0b0c10;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #2b2d42;
+      margin-bottom: 10px;
+    }
+
+    .info-title {
+      font-size: 11px;
+      color: #8d99ae;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+
+    .info-value {
+      font-size: 20px;
+      font-weight: bold;
+      color: #ffb703;
+    }
+
+    /* NEXTプレビュー用グリッド */
+    .next-board {
+      width: 100px;
+      height: 70px;
+      background-color: #0b0c10;
+      border: 1px solid #2b2d42;
+      border-radius: 4px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 1px;
+      margin: 4px auto 0 auto;
+    }
+
+    .guide {
+      background: #161a1d;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      color: #a8dadc;
+      line-height: 1.5;
+      border-left: 3px solid #ffb703;
+      margin-bottom: 10px;
+    }
+
+    .btn {
+      background: #00b4d8;
+      color: #121214;
+      border: none;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      text-align: center;
+    }
+
+    .btn:hover { background: #90e0ef; }
+
+    .overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(10, 10, 12, 0.92);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+      z-index: 100;
+    }
+
+    .overlay h2 { color: #00b4d8; font-size: 22px; margin-bottom: 10px; }
+    .overlay p { font-size: 12px; color: #c8d6e5; margin-bottom: 15px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>MANUAL SHIPMENT PUZZLE</h1>
+    <div class="sub-title">WASDで配置 ＆ マウスで連続出荷！</div>
+  </div>
+
+  <div class="game-container">
+    <div class="board-wrapper">
+      <div class="board" id="board"></div>
+    </div>
+
+    <div class="side-panel">
+      <div>
+        <div class="info-box">
+          <div class="info-title">NEXT</div>
+          <div class="next-board" id="next-board"></div>
+        </div>
+
+        <div class="info-box">
+          <div class="info-title">SCORE</div>
+          <div class="info-value" id="score">0</div>
+        </div>
+        <div class="info-box">
+          <div class="info-title">SHIPPED LINES</div>
+          <div class="info-value" id="lines">0</div>
+        </div>
+      </div>
+
+      <div class="guide">
+        <strong>【操作方法】</strong><br>
+        ・A / D : 左右移動<br>
+        ・S : 高速落下<br>
+        ・W / Space : 回転<br>
+        ・左クリック : 出荷！<br><br>
+        <strong>【ボーナス】</strong><br>
+        ・1〜2列：通常 (100pt)<br>
+        ・<strong>3列：+50pt</strong><br>
+        ・<strong>4列：+80pt</strong><br>
+        ・<strong>5列+：+300pt</strong>
+      </div>
+
+      <button class="btn" onclick="startGame()">ゲームスタート</button>
+    </div>
+
+    <!-- スタート / ゲームオーバー画面 -->
+    <div class="overlay" id="overlay">
+      <h2 id="overlay-title">マニュアル出荷パズル</h2>
+      <p id="overlay-desc">
+        ネクストを確認しながらブロックを配置し、<br>
+        揃ったラインをマウスでクリックして出荷！<br>
+        <strong>3列以上同時に消してボーナスを狙え！</strong>
+      </p>
+      <button class="btn" onclick="startGame()">出勤する</button>
+    </div>
+  </div>
+
+  <script>
+    const ROWS = 20;
+    const COLS = 10;
+    
+    // 定義（緑のSミノは例の変形仕様をそのまま採用！）
+    const SHAPES = [
+      [],
+      [[1,1,1,1]], // I
+      [[1,1],[1,1]], // O
+      [[0,1,0],[1,1,1]], // T
+      [[0,1,1],[1,1,0]], // S (変形版)
+      [[1,1,0],[0,1,1]], // Z
+      [[1,0,0],[1,1,1]], // J
+      [[0,0,1],[1,1,1]], // L
+      [[0,1,1],[1,0,0]], 
+      [[1,1,0],[0,0,1]],
+    ];
+
+    let grid = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+    let score = 0;
+    let shippedLines = 0;
+    let isPlaying = false;
+    let dropInterval = null;
+
+    let currentPiece = null;
+    let currentR = 0;
+    let currentC = 0;
+    let currentTypeId = 0;
+
+    let nextTypeId = 0;
+
+    const boardEl = document.getElementById('board');
+    const nextBoardEl = document.getElementById('next-board');
+    const scoreEl = document.getElementById('score');
+    const linesEl = document.getElementById('lines');
+    const overlay = document.getElementById('overlay');
+
+    function initBoardUI() {
+      boardEl.innerHTML = '';
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cell = document.createElement('div');
+          cell.classList.add('cell', 'empty');
+          cell.dataset.r = r;
+          cell.dataset.c = c;
+          boardEl.appendChild(cell);
+        }
+      }
+
+      nextBoardEl.innerHTML = '';
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 4; c++) {
+          const cell = document.createElement('div');
+          cell.classList.add('cell', 'empty');
+          nextBoardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function rotatePiece(piece) {
+      const R = piece.length;
+      const C = piece[0].length;
+      let rotated = Array(C).fill().map(() => Array(R).fill(0));
+      for (let r = 0; r < R; r++) {
+        for (let c = 0; c < C; c++) {
+          rotated[c][R - 1 - r] = piece[r][c];
+        }
+      }
+      return rotated;
+    }
+
+    function checkCollision(r, c, piece) {
+      for (let pr = 0; pr < piece.length; pr++) {
+        for (let pc = 0; pc < piece[0].length; pc++) {
+          if (piece[pr][pc]) {
+            const newR = r + pr;
+            const newC = c + pc;
+            if (newR >= ROWS || newC < 0 || newC >= COLS) return true;
+            if (newR >= 0 && grid[newR][newC] > 0) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function getFullRows() {
+      let fullRows = [];
+      for (let r = 0; r < ROWS; r++) {
+        if (grid[r].every(val => val > 0)) {
+          fullRows.push(r);
+        }
+      }
+      return fullRows;
+    }
+
+    function render() {
+      const fullRows = getFullRows();
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const index = r * COLS + c;
+          const cell = boardEl.children[index];
+          cell.className = 'cell';
+
+          let colorVal = grid[r][c];
+
+          if (currentPiece) {
+            const pr = r - currentR;
+            const pc = c - currentC;
+            if (pr >= 0 && pr < currentPiece.length && pc >= 0 && pc < currentPiece[0].length) {
+              if (currentPiece[pr][pc]) {
+                colorVal = currentTypeId;
+              }
+            }
+          }
+
+          if (colorVal > 0) {
+            cell.classList.add(`color-${colorVal}`);
+          } else {
+            cell.classList.add('empty');
+          }
+
+          if (fullRows.includes(r)) {
+            cell.classList.add('ready-to-clear');
+          }
+        }
+      }
+
+      renderNext();
+    }
+
+    function renderNext() {
+      for (let i = 0; i < nextBoardEl.children.length; i++) {
+        const cell = nextBoardEl.children[i];
+        cell.className = 'cell empty';
+      }
+
+      const nextPiece = SHAPES[nextTypeId];
+      const pRows = nextPiece.length;
+      const pCols = nextPiece[0].length;
+      const offsetR = Math.floor((3 - pRows) / 2);
+      const offsetC = Math.floor((4 - pCols) / 2);
+
+      for (let pr = 0; pr < pRows; pr++) {
+        for (let pc = 0; pc < pCols; pc++) {
+          if (nextPiece[pr][pc]) {
+            const targetR = offsetR + pr;
+            const targetC = offsetC + pc;
+            const index = targetR * 4 + targetC;
+            if (nextBoardEl.children[index]) {
+              nextBoardEl.children[index].className = `cell color-${nextTypeId}`;
+            }
+          }
+        }
+      }
+    }
+
+    function spawnPiece() {
+      currentTypeId = nextTypeId;
+      currentPiece = SHAPES[currentTypeId];
+      nextTypeId = Math.floor(Math.random() * 9) + 1;
+
+      currentR = 0;
+      currentC = Math.floor((COLS - currentPiece[0].length) / 2);
+
+      if (checkCollision(currentR, currentC, currentPiece)) {
+        endGame("ゲームオーバー！積み上がってしまいました。");
+      }
+    }
+
+    function lockPiece() {
+      for (let pr = 0; pr < currentPiece.length; pr++) {
+        for (let pc = 0; pc < currentPiece[0].length; pc++) {
+          if (currentPiece[pr][pc]) {
+            const r = currentR + pr;
+            const c = currentC + pc;
+            if (r >= 0 && r < ROWS) {
+              grid[r][c] = currentTypeId;
+            }
+          }
+        }
+      }
+      currentPiece = null;
+      spawnPiece();
+    }
+
+    // キーボード操作 (WASD / Space)
+    document.addEventListener('keydown', (e) => {
+      if (!isPlaying || !currentPiece) return;
+
+      const key = e.key.toLowerCase();
+
+      if (key === 'a') { // 左
+        if (!checkCollision(currentR, currentC - 1, currentPiece)) {
+          currentC--;
+        }
+      } else if (key === 'd') { // 右
+        if (!checkCollision(currentR, currentC + 1, currentPiece)) {
+          currentC++;
+        }
+      } else if (key === 's') { // 高速落下
+        if (!checkCollision(currentR + 1, currentC, currentPiece)) {
+          currentR++;
+        } else {
+          lockPiece();
+        }
+      } else if (key === 'w' || e.code === 'Space') { // 回転
+        const rotated = rotatePiece(currentPiece);
+        if (!checkCollision(currentR, currentC, rotated)) {
+          currentPiece = rotated;
+        }
+      }
+      render();
+    });
+
+    // マウス操作：揃った行のクリックで出荷（段階的ボーナス適用）
+    boardEl.addEventListener('click', (e) => {
+      if (!isPlaying) return;
+      const cell = e.target.closest('.cell');
+      if (!cell) return;
+
+      const clickedRow = parseInt(cell.dataset.r);
+      const fullRows = getFullRows();
+
+      if (fullRows.includes(clickedRow)) {
+        let targetRows = [clickedRow];
+
+        let rAbove = clickedRow - 1;
+        while (rAbove >= 0 && fullRows.includes(rAbove)) {
+          targetRows.push(rAbove);
+          rAbove--;
+        }
+
+        let rBelow = clickedRow + 1;
+        while (rBelow < ROWS && fullRows.includes(rBelow)) {
+          targetRows.push(rBelow);
+          rBelow++;
+        }
+
+        const count = targetRows.length;
+
+        grid = grid.filter((row, index) => !targetRows.includes(index));
+        for (let i = 0; i < count; i++) {
+          grid.unshift(Array(COLS).fill(0));
+        }
+
+        let baseScore = count * 100;
+        let bonusScore = 0;
+
+        if (count === 3) {
+          bonusScore = 50;
+        } else if (count === 4) {
+          bonusScore = 80;
+        } else if (count >= 5) {
+          bonusScore = 300;
+        }
+
+        const totalEarned = baseScore + bonusScore;
+        score += totalEarned;
+        shippedLines += count;
+
+        scoreEl.textContent = score;
+        linesEl.textContent = shippedLines;
+
+        render();
+      }
+    });
+
+    function gameLoop() {
+      if (!isPlaying) return;
+
+      if (!checkCollision(currentR + 1, currentC, currentPiece)) {
+        currentR++;
+      } else {
+        lockPiece();
+      }
+      render();
+    }
+
+    function startGame() {
+      grid = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+      score = 0;
+      shippedLines = 0;
+      isPlaying = true;
+
+      scoreEl.textContent = score;
+      linesEl.textContent = shippedLines;
+      overlay.style.display = 'none';
+
+      initBoardUI();
+
+      // 初回と次のピースを準備
+      nextTypeId = Math.floor(Math.random() * 7) + 1;
+      spawnPiece();
+      render();
+
+      if (dropInterval) clearInterval(dropInterval);
+      dropInterval = setInterval(gameLoop, 1000);
+    }
+
+    function endGame(message) {
+      isPlaying = false;
+      clearInterval(dropInterval);
+
+      document.getElementById('overlay-title').textContent = "ゲームオーバー";
+      document.getElementById('overlay-desc').innerHTML = `${message}<br><br>最終スコア: <strong>${score}</strong> PT<br>出荷ライン数: <strong>${shippedLines}</strong> 列`;
+      overlay.style.display = 'flex';
+    }
+
+    initBoardUI();
+  </script>
+</body>
+</html>

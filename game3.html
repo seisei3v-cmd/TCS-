@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MANUAL SHIPMENT PUZZLE - 1v1 VS MODE</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: #121214;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 🎮 モード選択画面 */
+    #select-screen {
+      background: #1e1e24;
+      border: 2px solid #ffb703;
+      border-radius: 12px;
+      padding: 40px 30px;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+    }
+
+    #select-screen h1 {
+      font-size: 24px;
+      color: #ffb703;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    #select-screen .sub-title {
+      font-size: 13px;
+      color: #8d99ae;
+      margin-bottom: 30px;
+    }
+
+    .mode-btn {
+      display: block;
+      width: 100%;
+      padding: 14px 0;
+      margin: 12px 0;
+      font-size: 15px;
+      font-weight: bold;
+      color: #121214;
+      background-color: #00b4d8;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .mode-btn:hover {
+      background-color: #90e0ef;
+      transform: translateY(-2px);
+    }
+
+    .mode-btn.vs-cpu { background-color: #ffb703; }
+    .mode-btn.vs-cpu:hover { background-color: #ffd166; }
+
+    .btn-secondary {
+      background: #2b2d42;
+      color: #8d99ae;
+      margin-top: 10px;
+    }
+    .btn-secondary:hover { background: #3d405b; color: #ffffff; }
+
+    /* ⚔️ 対戦画面 */
+    #vs-game-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .vs-container {
+      display: flex;
+      gap: 25px;
+      background: #1e1e24;
+      padding: 20px;
+      border-radius: 12px;
+      border: 2px solid #2b2d42;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+      position: relative;
+    }
+
+    .player-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .player-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #00b4d8;
+      margin-bottom: 8px;
+    }
+
+    .board-layout {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .board {
+      width: 200px;
+      height: 400px;
+      background-color: #0b0c10;
+      border: 3px solid #00b4d8;
+      border-radius: 4px;
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      grid-template-rows: repeat(20, 1fr);
+      gap: 1px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .board.p2-board { border-color: #ffb703; }
+
+    .cell {
+      width: 100%;
+      height: 100%;
+      border-radius: 2px;
+    }
+
+    .cell.empty { background-color: transparent; border: 1px solid rgba(255, 255, 255, 0.03); }
+    .cell.color-1 { background-color: #00f0f0; border: 1px solid #79f8f8; }
+    .cell.color-2 { background-color: #f0f000; border: 1px solid #f8f879; }
+    .cell.color-3 { background-color: #a000f0; border: 1px solid #d479f8; }
+    .cell.color-4 { background-color: #00f000; border: 1px solid #79f879; }
+    .cell.color-5 { background-color: #f00000; border: 1px solid #f87979; }
+    .cell.color-6 { background-color: #0000f0; border: 1px solid #7979f8; }
+    .cell.color-7 { background-color: #f0a000; border: 1px solid #f8d479; }
+    .cell.color-8 { background-color: #ffffff; border: 1px solid #e0e0e0; }
+    .cell.color-9 { background-color: #8b4513; border: 1px solid #a0522d; }
+    .cell.color-garbage { background-color: #6c757d; border: 1px solid #adb5bd; }
+
+    /* 揃った行の強調演出 */
+    .cell.ready-to-clear {
+      border: 3px solid #ffffff !important;
+      z-index: 10;
+      cursor: pointer;
+      animation: boldBorderFlash 0.8s infinite alternate;
+    }
+
+    @keyframes boldBorderFlash {
+      0% {
+        border: 3px solid #ffffff;
+        box-shadow: inset 0 0 6px #ffffff, 0 0 8px #ffb703;
+        transform: scale(0.98);
+      }
+      100% {
+        border: 4px solid #ffb703;
+        box-shadow: inset 0 0 12px #ffb703, 0 0 15px #ffd166;
+        transform: scale(1.02);
+      }
+    }
+
+    /* NEXT枠 & サイドパネル */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 90px;
+    }
+
+    .info-box {
+      background: #0b0c10;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #2b2d42;
+      text-align: center;
+    }
+
+    .info-title {
+      font-size: 10px;
+      color: #8d99ae;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .next-board {
+      width: 70px;
+      height: 50px;
+      background-color: #0b0c10;
+      border: 1px solid #2b2d42;
+      border-radius: 4px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 1px;
+      margin: 0 auto;
+    }
+
+    /* 🚚 トラックメーター */
+    .truck-container {
+      width: 100%;
+      background: #0b0c10;
+      border: 1px solid #2b2d42;
+      border-radius: 6px;
+      padding: 8px;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    .truck-label {
+      font-size: 11px;
+      color: #8d99ae;
+      margin-bottom: 4px;
+    }
+
+    .truck-bar-bg {
+      width: 100%;
+      height: 14px;
+      background: #161a1d;
+      border-radius: 7px;
+      overflow: hidden;
+      border: 1px solid #2b2d42;
+    }
+
+    .truck-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #00b4d8, #ffb703);
+      transition: width 0.3s ease;
+    }
+
+    .truck-btn {
+      width: 100%;
+      margin-top: 6px;
+      padding: 6px 0;
+      font-size: 11px;
+      font-weight: bold;
+      color: #121214;
+      background: #6c757d;
+      border: none;
+      border-radius: 4px;
+      cursor: not-allowed;
+      transition: all 0.2s;
+    }
+
+    .truck-btn.ready {
+      background: #e63946;
+      color: #ffffff;
+      cursor: pointer;
+      animation: pulseBtn 1s infinite alternate;
+    }
+
+    @keyframes pulseBtn {
+      0% { transform: scale(1); box-shadow: 0 0 4px #e63946; }
+      100% { transform: scale(1.03); box-shadow: 0 0 12px #ff4d5a; }
+    }
+
+    /* 🎮 操作方法表示 */
+    .controls-guide {
+      margin-top: 15px;
+      display: flex;
+      gap: 30px;
+      background: #18181c;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #8d99ae;
+    }
+
+    .controls-guide span { color: #ffb703; font-weight: bold; }
+
+    /* 🚚 アニメーション */
+    .truck-animation {
+      position: absolute;
+      top: 50%;
+      left: -100px;
+      transform: translateY(-50%);
+      font-size: 36px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 200;
+      display: none;
+    }
+
+    @keyframes truckDrive {
+      0% { left: -120px; opacity: 1; }
+      100% { left: 100%; opacity: 0; }
+    }
+
+    .overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(10, 10, 12, 0.92);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+      z-index: 100;
+    }
+
+    .overlay h2 { color: #ffb703; font-size: 24px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+  <!-- 🎮 モード選択画面 -->
+  <div id="select-screen">
+    <h1>⚔️ 対戦マニュアル出荷 ⚔️</h1>
+    <div class="sub-title">タップ出荷でメーターを溜め、スペースキーでトラック発進！</div>
+
+    <button class="mode-btn vs-cpu" onclick="startVsGame('cpu')">
+      🤖 vs コンピュータ (CPU戦)
+    </button>
+
+    <button class="mode-btn" onclick="startVsGame('pvp')">
+      👥 2人プレイ (プレイヤー戦)
+    </button>
+
+    <button class="mode-btn btn-secondary" onclick="location.href='game.html'">
+      🏠 タイトル画面へ戻る
+    </button>
+  </div>
+
+  <!-- ⚔️ 対戦ゲーム本体 -->
+  <div id="vs-game-screen">
+    <div class="vs-container">
+
+      <div id="truck-anim" class="truck-animation">🚚💨 トラック大量出荷！ [お邪魔攻撃！]</div>
+
+      <!-- 1P Area -->
+      <div class="player-section">
+        <div class="player-title" id="p1-name">1P (あなた)</div>
+        <div class="board-layout">
+          <div class="board" id="p1-board"></div>
+          
+          <div class="side-panel">
+            <div class="info-box">
+              <div class="info-title">NEXT</div>
+              <div class="next-board" id="p1-next"></div>
+            </div>
+            <div class="info-box">
+              <div class="info-title">SCORE</div>
+              <div style="font-size: 14px; font-weight: bold; color: #ffb703;" id="p1-score">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="truck-container">
+          <div class="truck-label">🚚 出荷メーター (<span id="p1-count">0</span>/30列)</div>
+          <div class="truck-bar-bg"><div class="truck-bar-fill" id="p1-bar"></div></div>
+          <button class="truck-btn" id="p1-truck-btn" onclick="launchTruck(p1)">🚚 トラック発進 (Space)</button>
+        </div>
+      </div>
+
+      <!-- 2P Area -->
+      <div class="player-section">
+        <div class="player-title" id="p2-name" style="color: #ffb703;">2P</div>
+        <div class="board-layout">
+          <div class="board p2-board" id="p2-board"></div>
+
+          <div class="side-panel">
+            <div class="info-box">
+              <div class="info-title">NEXT</div>
+              <div class="next-board" id="p2-next"></div>
+            </div>
+            <div class="info-box">
+              <div class="info-title">SCORE</div>
+              <div style="font-size: 14px; font-weight: bold; color: #ffb703;" id="p2-score">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="truck-container">
+          <div class="truck-label">🚚 出荷メーター (<span id="p2-count">0</span>/30列)</div>
+          <div class="truck-bar-bg"><div class="truck-bar-fill" id="p2-bar"></div></div>
+          <button class="truck-btn" id="p2-truck-btn" onclick="launchTruck(p2)">🚚 トラック発進 (Enter)</button>
+        </div>
+      </div>
+
+      <!-- 勝敗判定リザルト -->
+      <div class="overlay" id="vs-overlay" style="display: none;">
+        <h2 id="winner-title">1P WIN!!</h2>
+        <p id="winner-desc" style="margin-bottom: 20px; font-size: 13px; color: #c8d6e5;">トラック大量出荷で相手を圧倒しました！</p>
+        <button class="mode-btn" onclick="returnToSelect()">対戦選択画面へ戻る</button>
+      </div>
+
+    </div>
+
+    <!-- 🕹️ 操作説明 -->
+    <div class="controls-guide">
+      <div><span>1P</span>: [W]回転 [A/D]左右 [S]落下 ｜ [タップ]出荷 ｜ <span>[Space]トラック攻撃</span></div>
+      <div id="p2-guide"><span>2P</span>: [↑]回転 [←/→]左右 [↓]落下 ｜ [タップ]出荷 ｜ <span>[Enter]トラック攻撃</span></div>
+    </div>
+  </div>
+
+  <script>
+    const ROWS = 20;
+    const COLS = 10;
+    
+    const SHAPES = [
+      [],
+      [[1,1,1,1]], // 1: I
+      [[1,1],[1,1]], // 2: O
+      [[0,1,0],[1,1,1]], // 3: T
+      [[0,1,1],[1,1,0]], // 4: S (変形版)
+      [[1,1,0],[0,1,1]], // 5: Z
+      [[1,0,0],[1,1,1]], // 6: J
+      [[0,0,1],[1,1,1]], // 7: L
+      [[0,1,1],[1,0,0]], // 8
+      [[1,1,0],[0,0,1]], // 9
+    ];
+
+    let vsMode = 'cpu';
+    let isGameActive = false;
+    let gameLoop = null;
+
+    class Player {
+      constructor(id, boardEl, scoreEl, countEl, barEl, nextEl, truckBtnEl) {
+        this.id = id;
+        this.boardEl = boardEl;
+        this.scoreEl = scoreEl;
+        this.countEl = countEl;
+        this.barEl = barEl;
+        this.nextEl = nextEl;
+        this.truckBtnEl = truckBtnEl;
+        this.reset();
+      }
+
+      reset() {
+        this.grid = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+        this.score = 0;
+        this.shippedLines = 0;
+        this.truckStock = 0; // トラックストック数
+        this.currentPiece = null;
+        this.nextTypeId = Math.floor(Math.random() * 9) + 1;
+        this.currentR = 0;
+        this.currentC = 0;
+        this.currentTypeId = 0;
+        this.initNextUI();
+        this.updateUI();
+      }
+
+      initNextUI() {
+        this.nextEl.innerHTML = '';
+        for (let r = 0; r < 3; r++) {
+          for (let c = 0; c < 4; c++) {
+            const cell = document.createElement('div');
+            cell.classList.add('cell', 'empty');
+            this.nextEl.appendChild(cell);
+          }
+        }
+      }
+
+      updateUI() {
+        this.scoreEl.textContent = this.score;
+        this.countEl.textContent = this.shippedLines;
+        const percent = Math.min(100, (this.shippedLines / 30) * 100);
+        this.barEl.style.width = percent + '%';
+
+        // メーターが30以上貯まったらボタンをREADY化！
+        if (this.shippedLines >= 30) {
+          this.truckBtnEl.classList.add('ready');
+          this.truckBtnEl.textContent = `🚚 トラック発進可能！ (${this.id === 1 ? 'Space' : 'Enter'})`;
+        } else {
+          this.truckBtnEl.classList.remove('ready');
+          this.truckBtnEl.textContent = `🚚 トラック発進 (${this.id === 1 ? 'Space' : 'Enter'})`;
+        }
+
+        this.renderNext();
+      }
+
+      renderNext() {
+        for (let i = 0; i < this.nextEl.children.length; i++) {
+          this.nextEl.children[i].className = 'cell empty';
+        }
+        const nextPiece = SHAPES[this.nextTypeId];
+        if (!nextPiece) return;
+        const pRows = nextPiece.length;
+        const pCols = nextPiece[0].length;
+        const offsetR = Math.floor((3 - pRows) / 2);
+        const offsetC = Math.floor((4 - pCols) / 2);
+
+        for (let pr = 0; pr < pRows; pr++) {
+          for (let pc = 0; pc < pCols; pc++) {
+            if (nextPiece[pr][pc]) {
+              const targetR = offsetR + pr;
+              const targetC = offsetC + pc;
+              const index = targetR * 4 + targetC;
+              if (this.nextEl.children[index]) {
+                this.nextEl.children[index].className = `cell color-${this.nextTypeId}`;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    let p1, p2;
+
+    function initBoards() {
+      p1 = new Player(1, document.getElementById('p1-board'), document.getElementById('p1-score'), document.getElementById('p1-count'), document.getElementById('p1-bar'), document.getElementById('p1-next'), document.getElementById('p1-truck-btn'));
+      p2 = new Player(2, document.getElementById('p2-board'), document.getElementById('p2-score'), document.getElementById('p2-count'), document.getElementById('p2-bar'), document.getElementById('p2-next'), document.getElementById('p2-truck-btn'));
+
+      createGridCells(p1);
+      createGridCells(p2);
+    }
+
+    function createGridCells(player) {
+      player.boardEl.innerHTML = '';
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cell = document.createElement('div');
+          cell.classList.add('cell', 'empty');
+          cell.dataset.r = r;
+          cell.dataset.c = c;
+          player.boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function getFullRows(player) {
+      let fullRows = [];
+      for (let r = 0; r < ROWS; r++) {
+        if (player.grid[r].every(val => val > 0)) {
+          fullRows.push(r);
+        }
+      }
+      return fullRows;
+    }
+
+    function startVsGame(mode) {
+      vsMode = mode;
+      document.getElementById('select-screen').style.display = 'none';
+      document.getElementById('vs-game-screen').style.display = 'flex';
+      document.getElementById('vs-overlay').style.display = 'none';
+
+      document.getElementById('p2-name').textContent = mode === 'cpu' ? '🤖 CPU (AI)' : '2P (プレイヤー2)';
+      document.getElementById('p2-guide').style.display = mode === 'cpu' ? 'none' : 'block';
+
+      initBoards();
+      spawnPiece(p1);
+      spawnPiece(p2);
+
+      isGameActive = true;
+      if (gameLoop) clearInterval(gameLoop);
+      gameLoop = setInterval(updateGame, 600);
+    }
+
+    function returnToSelect() {
+      isGameActive = false;
+      if (gameLoop) clearInterval(gameLoop);
+      document.getElementById('vs-game-screen').style.display = 'none';
+      document.getElementById('select-screen').style.display = 'block';
+    }
+
+    function rotatePiece(piece) {
+      const R = piece.length, C = piece[0].length;
+      let rotated = Array(C).fill().map(() => Array(R).fill(0));
+      for (let r = 0; r < R; r++) {
+        for (let c = 0; c < C; c++) rotated[c][R - 1 - r] = piece[r][c];
+      }
+      return rotated;
+    }
+
+    function checkCollision(player, r, c, piece) {
+      for (let pr = 0; pr < piece.length; pr++) {
+        for (let pc = 0; pc < piece[0].length; pc++) {
+          if (piece[pr][pc]) {
+            const newR = r + pr, newC = c + pc;
+            if (newR >= ROWS || newC < 0 || newC >= COLS) return true;
+            if (newR >= 0 && player.grid[newR][newC] > 0) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function spawnPiece(player) {
+      player.currentTypeId = player.nextTypeId;
+      player.currentPiece = SHAPES[player.currentTypeId];
+      player.nextTypeId = Math.floor(Math.random() * 9) + 1;
+
+      player.currentR = 0;
+      player.currentC = Math.floor((COLS - player.currentPiece[0].length) / 2);
+      player.updateUI();
+
+      if (checkCollision(player, player.currentR, player.currentC, player.currentPiece)) {
+        endVsGame(player.id === 1 ? p2 : p1);
+      }
+    }
+
+    function lockPiece(player) {
+      for (let pr = 0; pr < player.currentPiece.length; pr++) {
+        for (let pc = 0; pc < player.currentPiece[0].length; pc++) {
+          if (player.currentPiece[pr][pc]) {
+            const r = player.currentR + pr, c = player.currentC + pc;
+            if (r >= 0 && r < ROWS) player.grid[r][c] = player.currentTypeId;
+          }
+        }
+      }
+      player.currentPiece = null;
+
+      if (player.id === 2 && vsMode === 'cpu') {
+        cpuAutoShip();
+      }
+
+      spawnPiece(player);
+    }
+
+    function updateGame() {
+      if (!isGameActive) return;
+
+      movePlayerDown(p1);
+
+      if (vsMode === 'cpu') {
+        cpuAIAction();
+      } else {
+        movePlayerDown(p2);
+      }
+
+      renderPlayer(p1);
+      renderPlayer(p2);
+    }
+
+    function movePlayerDown(player) {
+      if (!player.currentPiece) return;
+      if (!checkCollision(player, player.currentR + 1, player.currentC, player.currentPiece)) {
+        player.currentR++;
+      } else {
+        lockPiece(player);
+      }
+    }
+
+    // 📦 Tap Ship
+    function handleBoardClick(player, clickedRow) {
+      if (!isGameActive) return;
+      const fullRows = getFullRows(player);
+
+      if (fullRows.includes(clickedRow)) {
+        let targetRows = [clickedRow];
+
+        let rAbove = clickedRow - 1;
+        while (rAbove >= 0 && fullRows.includes(rAbove)) {
+          targetRows.push(rAbove);
+          rAbove--;
+        }
+
+        let rBelow = clickedRow + 1;
+        while (rBelow < ROWS && fullRows.includes(rBelow)) {
+          targetRows.push(rBelow);
+          rBelow++;
+        }
+
+        const count = targetRows.length;
+
+        player.grid = player.grid.filter((row, index) => !targetRows.includes(index));
+        for (let i = 0; i < count; i++) {
+          player.grid.unshift(Array(COLS).fill(0));
+        }
+
+        // ボーナス判定（せいやくん提案）
+        let bonusLines = 0;
+        let baseScore = count * 100;
+        let bonusScore = 0;
+
+        if (count === 3) {
+          bonusLines = 2;
+          bonusScore = 500;
+        } else if (count === 4) {
+          bonusLines = 5;
+          bonusScore = 1500;
+        } else if (count >= 5) {
+          bonusLines = 10;
+          bonusScore = 3500;
+        }
+
+        player.shippedLines += (count + bonusLines);
+        player.score += (baseScore + bonusScore);
+
+        player.updateUI();
+        renderPlayer(player);
+      }
+    }
+
+    // 🚚 メーター消費で任意にトラック発進！
+    function launchTruck(attacker) {
+      if (!isGameActive) return;
+      if (attacker.shippedLines < 30) return; // 30未満なら発進不可
+
+      attacker.shippedLines -= 30; // 30列消費
+      attacker.score += 5000;
+      attacker.updateUI();
+
+      const defender = attacker.id === 1 ? p2 : p1;
+
+      const truck = document.getElementById('truck-anim');
+      truck.style.display = 'block';
+      truck.style.animation = 'none';
+      truck.offsetHeight;
+      truck.style.animation = 'truckDrive 1.8s linear';
+
+      setTimeout(() => { truck.style.display = 'none'; }, 1800);
+
+      // 相手の底からお邪魔ブロック3行攻撃！
+      for (let i = 0; i < 3; i++) {
+        defender.grid.shift();
+        let garbageRow = Array(COLS).fill(8);
+        const hole = Math.floor(Math.random() * COLS);
+        garbageRow[hole] = 0;
+        defender.grid.push(garbageRow);
+      }
+      renderPlayer(defender);
+    }
+
+    function cpuAutoShip() {
+      const fullRows = getFullRows(p2);
+      if (fullRows.length > 0) {
+        handleBoardClick(p2, fullRows[0]);
+      }
+      // CPUもメーターが貯まったら自動でトラック攻撃！
+      if (p2.shippedLines >= 30) {
+        launchTruck(p2);
+      }
+    }
+
+    function cpuAIAction() {
+      if (!p2.currentPiece) return;
+      if (Math.random() < 0.35) {
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        if (!checkCollision(p2, p2.currentR, p2.currentC + dir, p2.currentPiece)) {
+          p2.currentC += dir;
+        }
+      }
+      movePlayerDown(p2);
+    }
+
+    function renderPlayer(player) {
+      const fullRows = getFullRows(player);
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const index = r * COLS + c;
+          const cell = player.boardEl.children[index];
+          cell.className = 'cell';
+
+          let colorVal = player.grid[r][c];
+
+          if (player.currentPiece) {
+            const pr = r - player.currentR, pc = c - player.currentC;
+            if (pr >= 0 && pr < player.currentPiece.length && pc >= 0 && pc < player.currentPiece[0].length) {
+              if (player.currentPiece[pr][pc]) colorVal = player.currentTypeId;
+            }
+          }
+
+          if (colorVal === 8) {
+            cell.classList.add('color-garbage');
+          } else if (colorVal > 0) {
+            cell.classList.add(`color-${colorVal}`);
+          } else {
+            cell.classList.add('empty');
+          }
+
+          if (fullRows.includes(r)) {
+            cell.classList.add('ready-to-clear');
+          }
+        }
+      }
+    }
+
+    // 🖱️ マウスクリック操作
+    document.getElementById('p1-board').addEventListener('click', (e) => {
+      const cell = e.target.closest('.cell');
+      if (cell) handleBoardClick(p1, parseInt(cell.dataset.r));
+    });
+
+    document.getElementById('p2-board').addEventListener('click', (e) => {
+      if (vsMode === 'pvp') {
+        const cell = e.target.closest('.cell');
+        if (cell) handleBoardClick(p2, parseInt(cell.dataset.r));
+      }
+    });
+
+    // ⌨️ キーボード操作 (1P: WASD + Spaceでトラック発進)
+    window.addEventListener('keydown', (e) => {
+      if (!isGameActive) return;
+
+      const key = e.key.toLowerCase();
+
+      // 1P (WASD)
+      if (key === 'a' && !checkCollision(p1, p1.currentR, p1.currentC - 1, p1.currentPiece)) p1.currentC--;
+      if (key === 'd' && !checkCollision(p1, p1.currentR, p1.currentC + 1, p1.currentPiece)) p1.currentC++;
+      if (key === 's') movePlayerDown(p1);
+      if (key === 'w') {
+        const rotated = rotatePiece(p1.currentPiece);
+        if (!checkCollision(p1, p1.currentR, p1.currentC, rotated)) p1.currentPiece = rotated;
+      }
+      // 1P: スペースキーでトラック発進！
+      if (e.code === 'Space') {
+        e.preventDefault();
+        launchTruck(p1);
+      }
+
+      // 2P (矢印キー + Enterでトラック発進)
+      if (vsMode === 'pvp') {
+        if (e.key === 'ArrowLeft' && !checkCollision(p2, p2.currentR, p2.currentC - 1, p2.currentPiece)) p2.currentC--;
+        if (e.key === 'ArrowRight' && !checkCollision(p2, p2.currentR, p2.currentC + 1, p2.currentPiece)) p2.currentC++;
+        if (e.key === 'ArrowDown') movePlayerDown(p2);
+        if (e.key === 'ArrowUp') {
+          const rotated = rotatePiece(p2.currentPiece);
+          if (!checkCollision(p2, p2.currentR, p2.currentC, rotated)) p2.currentPiece = rotated;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          launchTruck(p2);
+        }
+      }
+
+      renderPlayer(p1);
+      renderPlayer(p2);
+    });
+
+    function endVsGame(winner) {
+      isGameActive = false;
+      clearInterval(gameLoop);
+      document.getElementById('winner-title').textContent = `${winner.id === 1 ? '1P (あなた)' : (vsMode==='cpu'?'🤖 CPU':'2P')} WIN!!`;
+      document.getElementById('vs-overlay').style.display = 'flex';
+    }
+  </script>
+</body>
+</html>
